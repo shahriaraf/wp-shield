@@ -188,7 +188,4 @@ app.get("/scan", async (req, res) => {
 });
 
 // ─── Start ────────────────────────────────────────────────────────────────────
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
-  console.log(`WPShield Security Scanner running on http://localhost:${PORT}`);
-});
+module.exports = app;
