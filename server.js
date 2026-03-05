@@ -32,7 +32,7 @@ app.get("/scan", async (req, res) => {
     let mainResponse;
     try {
       mainResponse = await axios.get(url, {
-        timeout: 12000,
+        timeout: 30000,
         maxRedirects: 5,
         validateStatus: () => true,
         headers: {
@@ -41,7 +41,7 @@ app.get("/scan", async (req, res) => {
         },
       });
     } catch (e) {
-      return res.json({ error: `Could not reach website: ${e.message}` });
+      return res.json({ error: `Website scan timeout. Target site may be slow or blocked` });
     }
 
     const headers = mainResponse.headers;
