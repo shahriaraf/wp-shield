@@ -2,6 +2,7 @@ const express = require("express");
 const axios = require("axios");
 const cors = require("cors");
 const app = express();
+const path = require("path");
 
 app.use(cors());
 app.use(express.static("public"));
@@ -19,8 +20,13 @@ function normalizeUrl(url) {
 }
 
 
+
+app.get("/", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "index.html"));
+});
+
 // ─── Main Scan Endpoint ───────────────────────────────────────────────────────
-app.get("/", async (req, res) => {
+app.get("/scan", async (req, res) => {
   let url = (req.query.url || "").trim();
   if (!url) return res.json({ error: "URL required" });
 
