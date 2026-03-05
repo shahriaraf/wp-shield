@@ -1,0 +1,929 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>WP Shield — Security Audit</title>
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #080c10;
+      --surface: #0d1117;
+      --border: #1a2332;
+      --accent: #00e5ff;
+      --accent2: #ff3c6e;
+      --warn: #ffa733;
+      --pass: #00e676;
+      --fail: #ff3c6e;
+      --missing: #ffa733;
+      --text: #c9d8e8;
+      --dim: #4a6074;
+      --mono: 'Share Tech Mono', monospace;
+      --sans: 'Syne', sans-serif;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* Grid BG */
+    body::before {
+      content: '';
+      position: fixed; inset: 0;
+      background-image:
+        linear-gradient(rgba(0,229,255,0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0,229,255,0.03) 1px, transparent 1px);
+      background-size: 40px 40px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .container {
+      position: relative;
+      z-index: 1;
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 60px 24px 80px;
+    }
+
+    /* Header */
+    .header {
+      display: flex;
+      align-items: center;
+      gap: 18px;
+      margin-bottom: 12px;
+    }
+
+    .shield-icon {
+      width: 52px; height: 52px;
+      position: relative;
+      flex-shrink: 0;
+    }
+    .shield-icon svg { width: 100%; height: 100%; }
+
+    .brand h1 {
+      font-size: 2.2rem;
+      font-weight: 800;
+      letter-spacing: -1px;
+      line-height: 1;
+      color: #fff;
+    }
+    .brand h1 span { color: var(--accent); }
+    .brand p {
+      font-size: 0.78rem;
+      color: var(--dim);
+      font-family: var(--mono);
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      margin-top: 4px;
+    }
+
+    /* Scan Box */
+    .scan-box {
+      margin-top: 48px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 28px 32px;
+      position: relative;
+      overflow: hidden;
+    }
+    .scan-box::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, var(--accent), transparent);
+    }
+
+    .scan-label {
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      color: var(--dim);
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      margin-bottom: 12px;
+    }
+
+    .input-row {
+      display: flex;
+      gap: 12px;
+    }
+
+    .url-input {
+      flex: 1;
+      background: #0a0f14;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px 18px;
+      font-family: var(--mono);
+      font-size: 0.95rem;
+      color: var(--text);
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .url-input:focus { border-color: var(--accent); }
+    .url-input::placeholder { color: var(--dim); }
+
+    .scan-btn {
+      background: var(--accent);
+      color: #000;
+      border: none;
+      border-radius: 8px;
+      padding: 14px 28px;
+      font-family: var(--sans);
+      font-weight: 700;
+      font-size: 0.9rem;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: all 0.2s;
+      white-space: nowrap;
+      position: relative;
+      overflow: hidden;
+    }
+    .scan-btn:hover { background: #33eaff; transform: translateY(-1px); }
+    .scan-btn:active { transform: translateY(0); }
+    .scan-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+    /* Progress */
+    .progress-bar {
+      height: 3px;
+      background: var(--border);
+      border-radius: 2px;
+      margin-top: 18px;
+      overflow: hidden;
+      display: none;
+    }
+    .progress-bar.active { display: block; }
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent), #0099cc);
+      width: 0%;
+      transition: width 0.4s ease;
+      border-radius: 2px;
+    }
+
+    .scan-status {
+      font-family: var(--mono);
+      font-size: 0.78rem;
+      color: var(--accent);
+      margin-top: 10px;
+      min-height: 18px;
+    }
+
+    /* Score */
+    .score-section {
+      display: none;
+      margin-top: 36px;
+    }
+    .score-section.visible { display: block; animation: fadeIn 0.5s ease; }
+
+    .score-header {
+      display: flex;
+      align-items: center;
+      gap: 24px;
+      margin-bottom: 32px;
+      padding: 24px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .score-ring {
+      position: relative;
+      width: 100px;
+      height: 100px;
+      flex-shrink: 0;
+    }
+    .score-ring svg { transform: rotate(-90deg); }
+    .score-ring .ring-bg { fill: none; stroke: var(--border); stroke-width: 6; }
+    .score-ring .ring-fill {
+      fill: none;
+      stroke-width: 6;
+      stroke-linecap: round;
+      stroke-dasharray: 251;
+      stroke-dashoffset: 251;
+      transition: stroke-dashoffset 1.2s cubic-bezier(0.4,0,0.2,1);
+    }
+    .score-number {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      font-family: var(--mono);
+      font-size: 1.6rem;
+      font-weight: bold;
+      color: #fff;
+    }
+    .score-number small { font-size: 0.6rem; color: var(--dim); }
+
+    .score-meta { flex: 1; }
+    .score-grade {
+      font-size: 3rem;
+      font-weight: 800;
+      line-height: 1;
+      color: #fff;
+    }
+    .score-label {
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      margin-top: 4px;
+    }
+    .score-url {
+      font-family: var(--mono);
+      font-size: 0.78rem;
+      color: var(--dim);
+      margin-top: 8px;
+      word-break: break-all;
+    }
+    .scan-time {
+      position: absolute;
+      top: 14px; right: 18px;
+      font-family: var(--mono);
+      font-size: 0.68rem;
+      color: var(--dim);
+    }
+
+    /* Checks Grid */
+    .checks-title {
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      color: var(--dim);
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      margin-bottom: 14px;
+    }
+
+    .checks-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 12px;
+      margin-bottom: 32px;
+    }
+
+    .check-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 16px 18px;
+      position: relative;
+      overflow: hidden;
+      animation: slideUp 0.4s ease both;
+      transition: border-color 0.2s, transform 0.2s;
+    }
+    .check-card:hover { border-color: #2a3a4a; transform: translateY(-2px); }
+
+    .check-card::before {
+      content: '';
+      position: absolute;
+      left: 0; top: 0; bottom: 0;
+      width: 3px;
+      border-radius: 0 2px 2px 0;
+    }
+    .check-card.pass::before { background: var(--pass); }
+    .check-card.fail::before { background: var(--fail); }
+    .check-card.warn::before { background: var(--warn); }
+    .check-card.info::before { background: #667eea; }
+
+    .check-top {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      margin-bottom: 8px;
+    }
+
+    .check-name {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: #fff;
+    }
+    .check-icon { font-size: 1rem; }
+
+    .check-status {
+      font-family: var(--mono);
+      font-size: 0.7rem;
+      font-weight: bold;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      padding: 3px 8px;
+      border-radius: 4px;
+    }
+    .status-PASS { background: rgba(0,230,118,0.12); color: var(--pass); }
+    .status-FAIL { background: rgba(255,60,110,0.12); color: var(--fail); }
+    .status-MISSING { background: rgba(255,167,51,0.12); color: var(--warn); }
+    .status-VISIBLE { background: rgba(255,60,110,0.12); color: var(--fail); }
+    .status-HIDDEN { background: rgba(0,230,118,0.12); color: var(--pass); }
+    .status-DETECTED { background: rgba(255,60,110,0.12); color: var(--fail); }
+    .status-NONE { background: rgba(0,230,118,0.12); color: var(--pass); }
+    .status-ENABLED { background: rgba(255,167,51,0.12); color: var(--warn); }
+    .status-DISABLED { background: rgba(0,230,118,0.12); color: var(--pass); }
+    .status-OLD { background: rgba(255,60,110,0.12); color: var(--fail); }
+    .status-CURRENT { background: rgba(0,230,118,0.12); color: var(--pass); }
+    .status-OPEN { background: rgba(255,60,110,0.12); color: var(--fail); }
+    .status-RESTRICTED { background: rgba(0,230,118,0.12); color: var(--pass); }
+    .status-INFO { background: rgba(102,126,234,0.12); color: #a5b4fc; }
+
+    .check-detail {
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      color: var(--dim);
+      line-height: 1.5;
+    }
+
+    /* Recommendations */
+    .rec-section { margin-top: 8px; }
+
+    .rec-title {
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      color: var(--dim);
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      margin-bottom: 14px;
+    }
+
+    .rec-list { display: flex; flex-direction: column; gap: 10px; }
+
+    .rec-item {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 16px 20px;
+      display: flex;
+      gap: 14px;
+      align-items: flex-start;
+      animation: slideUp 0.4s ease both;
+      cursor: pointer;
+      transition: border-color 0.2s;
+    }
+    .rec-item:hover { border-color: #2a3a4a; }
+    .rec-item.expanded .rec-body { display: block; }
+    .rec-item.expanded .rec-arrow { transform: rotate(90deg); }
+
+    .rec-severity {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      margin-top: 6px;
+    }
+    .sev-critical { background: var(--fail); box-shadow: 0 0 8px var(--fail); }
+    .sev-high { background: #ff6b35; box-shadow: 0 0 8px #ff6b35; }
+    .sev-medium { background: var(--warn); }
+    .sev-low { background: #667eea; }
+    .sev-info { background: var(--dim); }
+
+    .rec-content { flex: 1; }
+    .rec-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .rec-headline {
+      font-size: 0.88rem;
+      font-weight: 600;
+      color: #fff;
+    }
+    .rec-tag {
+      font-family: var(--mono);
+      font-size: 0.65rem;
+      color: var(--dim);
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+    .rec-arrow {
+      color: var(--dim);
+      font-size: 0.8rem;
+      margin-left: 8px;
+      transition: transform 0.2s;
+    }
+    .rec-body {
+      display: none;
+      margin-top: 10px;
+      font-family: var(--mono);
+      font-size: 0.75rem;
+      color: #8aa0b8;
+      line-height: 1.7;
+    }
+    .rec-code {
+      background: #0a0f14;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 10px 14px;
+      margin-top: 8px;
+      font-size: 0.7rem;
+      color: var(--accent);
+      overflow-x: auto;
+      white-space: pre;
+    }
+
+    /* Export */
+    .export-row {
+      display: flex;
+      gap: 10px;
+      margin-top: 32px;
+      flex-wrap: wrap;
+    }
+    .export-btn {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 8px;
+      padding: 10px 20px;
+      font-family: var(--sans);
+      font-size: 0.82rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .export-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+    /* Error */
+    .error-box {
+      display: none;
+      background: rgba(255,60,110,0.08);
+      border: 1px solid rgba(255,60,110,0.3);
+      border-radius: 8px;
+      padding: 14px 18px;
+      font-family: var(--mono);
+      font-size: 0.82rem;
+      color: var(--fail);
+      margin-top: 16px;
+    }
+    .error-box.visible { display: block; }
+
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    @keyframes slideUp {
+      from { opacity: 0; transform: translateY(16px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+
+    .blinking { animation: pulse 1.2s infinite; }
+
+    /* Responsive */
+    @media (max-width: 600px) {
+      .input-row { flex-direction: column; }
+      .score-header { flex-direction: column; text-align: center; }
+      .checks-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+<div class="container">
+
+  <div class="header">
+    <div class="shield-icon">
+      <svg viewBox="0 0 52 52" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M26 4L6 13V27C6 38 15 47 26 50C37 47 46 38 46 27V13L26 4Z" stroke="#00e5ff" stroke-width="2" fill="rgba(0,229,255,0.05)"/>
+        <path d="M18 26L23 31L34 20" stroke="#00e5ff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </div>
+    <div class="brand">
+      <h1>WP<span>Shield</span></h1>
+      <p>Security Audit Tool · v2.0</p>
+    </div>
+  </div>
+
+  <div class="scan-box">
+    <div class="scan-label">▸ Target URL</div>
+    <div class="input-row">
+      <input class="url-input" id="url" type="url" placeholder="https://your-wordpress-site.com" autocomplete="off" spellcheck="false"/>
+      <button class="scan-btn" id="scanBtn" onclick="startScan()">⚡ Scan</button>
+    </div>
+    <div class="progress-bar" id="progressBar">
+      <div class="progress-fill" id="progressFill"></div>
+    </div>
+    <div class="scan-status" id="scanStatus"></div>
+    <div class="error-box" id="errorBox"></div>
+  </div>
+
+  <!-- Results -->
+  <div class="score-section" id="scoreSection">
+
+    <div class="score-header" id="scoreHeader">
+      <div class="score-ring">
+        <svg width="100" height="100" viewBox="0 0 100 100">
+          <circle class="ring-bg" cx="50" cy="50" r="40"/>
+          <circle class="ring-fill" id="ringFill" cx="50" cy="50" r="40"/>
+        </svg>
+        <div class="score-number">
+          <span id="scoreNum">0</span>
+          <small>/100</small>
+        </div>
+      </div>
+      <div class="score-meta">
+        <div class="score-grade" id="scoreGrade">—</div>
+        <div class="score-label" id="scoreLabel" style="color:var(--dim)">Initializing...</div>
+        <div class="score-url" id="scoreUrl"></div>
+      </div>
+      <div class="scan-time" id="scanTime"></div>
+    </div>
+
+    <div class="checks-title">▸ Security Checks</div>
+    <div class="checks-grid" id="checksGrid"></div>
+
+    <div class="rec-section">
+      <div class="rec-title">▸ Recommendations & Fixes</div>
+      <div class="rec-list" id="recList"></div>
+    </div>
+
+    <div class="export-row">
+      <button class="export-btn" onclick="exportJSON()">⬇ Export JSON</button>
+      <button class="export-btn" onclick="exportText()">⬇ Export Report</button>
+      <button class="export-btn" onclick="copyReport()">⎘ Copy Summary</button>
+    </div>
+
+  </div>
+</div>
+
+<script>
+let lastReport = null;
+
+const CHECKS_META = {
+  ssl:                  { name: 'SSL / HTTPS',            icon: '🔒', weight: 15 },
+  xFrameOptions:        { name: 'Clickjacking Protection', icon: '🖼', weight: 10 },
+  contentSecurityPolicy:{ name: 'Content Security Policy',icon: '🛡', weight: 12 },
+  xssProtection:        { name: 'XSS Protection Header',  icon: '⚔', weight: 8  },
+  poweredBy:            { name: 'Server Fingerprint',     icon: '🔍', weight: 8  },
+  strictTransport:      { name: 'HSTS Header',            icon: '🔐', weight: 10 },
+  referrerPolicy:       { name: 'Referrer Policy',        icon: '↗', weight: 6  },
+  permissionsPolicy:    { name: 'Permissions Policy',     icon: '🎛', weight: 6  },
+  cacheControl:         { name: 'Cache-Control',          icon: '💾', weight: 5  },
+  serverHeader:         { name: 'Server Header Exposure', icon: '🖥', weight: 7  },
+  wpVersion:            { name: 'WP Version Exposure',    icon: '🏷', weight: 8  },
+  directoryListing:     { name: 'Directory Listing',      icon: '📁', weight: 10 },
+  xmlrpc:               { name: 'XML-RPC Exposure',       icon: '⚡', weight: 5  },
+};
+
+const RECOMMENDATIONS = {
+  ssl: {
+    severity: 'critical',
+    headline: 'Enable HTTPS / SSL Certificate',
+    tag: 'ENCRYPTION',
+    body: 'Your site is served over HTTP. All data including passwords and cookies is transmitted in plain text and can be intercepted.',
+    fix: `# Install Certbot (Let's Encrypt)\nsudo apt install certbot python3-certbot-nginx\nsudo certbot --nginx -d yourdomain.com\n\n# Or add to wp-config.php:\ndefine('FORCE_SSL_ADMIN', true);`
+  },
+  xFrameOptions: {
+    severity: 'high',
+    headline: 'Add X-Frame-Options to prevent Clickjacking',
+    tag: 'HEADERS',
+    body: 'Without this header, attackers can embed your site in an invisible iframe to steal clicks and credentials.',
+    fix: `# In .htaccess:\nHeader always set X-Frame-Options "SAMEORIGIN"\n\n# In nginx.conf:\nadd_header X-Frame-Options "SAMEORIGIN" always;\n\n# Or in functions.php:\nadd_action('send_headers', function(){\n  header('X-Frame-Options: SAMEORIGIN');\n});`
+  },
+  contentSecurityPolicy: {
+    severity: 'high',
+    headline: 'Implement Content Security Policy (CSP)',
+    tag: 'HEADERS',
+    body: 'CSP prevents XSS attacks by whitelisting trusted content sources. Without it, malicious scripts can be injected into your pages.',
+    fix: `# Starter CSP in .htaccess:\nHeader set Content-Security-Policy \\\n  "default-src 'self'; \\\n   script-src 'self' 'unsafe-inline' *.googleapis.com; \\\n   style-src 'self' 'unsafe-inline' fonts.googleapis.com; \\\n   img-src 'self' data: https:; \\\n   font-src 'self' fonts.gstatic.com;"`
+  },
+  xssProtection: {
+    severity: 'medium',
+    headline: 'Enable X-XSS-Protection Header',
+    tag: 'HEADERS',
+    body: 'Legacy browsers rely on this header to activate their built-in XSS filters. Modern sites should use CSP instead, but both together provide defense-in-depth.',
+    fix: `# In .htaccess:\nHeader set X-XSS-Protection "1; mode=block"\n\n# In nginx.conf:\nadd_header X-XSS-Protection "1; mode=block" always;`
+  },
+  poweredBy: {
+    severity: 'medium',
+    headline: 'Hide X-Powered-By server header',
+    tag: 'HARDENING',
+    body: 'Exposing your tech stack (PHP version, framework) helps attackers target known vulnerabilities. Remove this header immediately.',
+    fix: `# In php.ini:\nexpose_php = Off\n\n# In .htaccess:\nHeader unset X-Powered-By\nHeader always unset X-Powered-By\n\n# In functions.php:\nremove_action('wp_head', 'wp_generator');`
+  },
+  strictTransport: {
+    severity: 'high',
+    headline: 'Enable HTTP Strict Transport Security (HSTS)',
+    tag: 'HEADERS',
+    body: 'HSTS forces browsers to only connect via HTTPS, preventing SSL stripping attacks and protocol downgrade exploits.',
+    fix: `# In .htaccess (after enabling HTTPS):\nHeader always set Strict-Transport-Security \\\n  "max-age=31536000; includeSubDomains; preload"\n\n# In nginx.conf:\nadd_header Strict-Transport-Security \\\n  "max-age=31536000; includeSubDomains" always;`
+  },
+  referrerPolicy: {
+    severity: 'low',
+    headline: 'Set a Referrer Policy',
+    tag: 'PRIVACY',
+    body: 'Without a referrer policy, sensitive URL parameters may leak to third-party sites when users click external links.',
+    fix: `# In .htaccess:\nHeader set Referrer-Policy "strict-origin-when-cross-origin"\n\n# In wp-config.php (via hook):\nadd_action('send_headers', function(){\n  header('Referrer-Policy: strict-origin-when-cross-origin');\n});`
+  },
+  permissionsPolicy: {
+    severity: 'low',
+    headline: 'Add Permissions-Policy Header',
+    tag: 'PRIVACY',
+    body: 'This header controls browser feature access (camera, microphone, geolocation). Restricting unnecessary features reduces attack surface.',
+    fix: `# In .htaccess:\nHeader set Permissions-Policy \\\n  "camera=(), microphone=(), geolocation=(), interest-cohort=()"`
+  },
+  wpVersion: {
+    severity: 'medium',
+    headline: 'Hide WordPress Version Number',
+    tag: 'HARDENING',
+    body: 'The WP generator meta tag advertises your exact WordPress version, making it trivial for attackers to find version-specific exploits.',
+    fix: `# In functions.php:\nremove_action('wp_head', 'wp_generator');\n\n// Also remove from RSS feeds:\nadd_filter('the_generator', '__return_empty_string');\n\n// Remove from login page:\nadd_filter('login_headerurl', function() {\n  return home_url();\n});`
+  },
+  xmlrpc: {
+    severity: 'high',
+    headline: 'Disable or Restrict XML-RPC',
+    tag: 'ATTACK SURFACE',
+    body: 'XML-RPC is a legacy API that enables brute force amplification attacks (one request = 1000 login attempts) and DDoS amplification.',
+    fix: `# Block in .htaccess:\n<Files xmlrpc.php>\n  Order Deny,Allow\n  Deny from all\n</Files>\n\n# Or disable in functions.php:\nadd_filter('xmlrpc_enabled', '__return_false');\n\n# Or use Wordfence / iThemes Security plugin.`
+  },
+  directoryListing: {
+    severity: 'critical',
+    headline: 'Disable Directory Listing',
+    tag: 'HARDENING',
+    body: 'Directory listing exposes your file structure to attackers, revealing plugin/theme versions, configuration files, and backup files.',
+    fix: `# In .htaccess (root and wp-content/):\nOptions -Indexes\n\n# Or create empty index.php in exposed dirs:\n<?php // Silence is golden.`
+  },
+  serverHeader: {
+    severity: 'low',
+    headline: 'Hide Server Header',
+    tag: 'HARDENING',
+    body: 'The Server header reveals your web server type and version, helping attackers identify unpatched software vulnerabilities.',
+    fix: `# Nginx - in nginx.conf:\nserver_tokens off;\n\n# Apache with mod_headers:\nHeader unset Server\nServerTokens Prod\nServerSignature Off`
+  },
+  cacheControl: {
+    severity: 'low',
+    headline: 'Set proper Cache-Control headers',
+    tag: 'SECURITY',
+    body: 'Sensitive pages (admin, login) should not be cached by browsers or proxies. Missing cache directives may expose session data.',
+    fix: `# For admin/login pages in .htaccess:\n<FilesMatch "wp-login.php|wp-admin">\n  Header set Cache-Control "no-store, no-cache, must-revalidate"\n  Header set Pragma "no-cache"\n</FilesMatch>`
+  }
+};
+
+async function startScan() {
+  const url = document.getElementById('url').value.trim();
+  if (!url) return;
+
+  const btn = document.getElementById('scanBtn');
+  const progressBar = document.getElementById('progressBar');
+  const progressFill = document.getElementById('progressFill');
+  const status = document.getElementById('scanStatus');
+  const errorBox = document.getElementById('errorBox');
+  const scoreSection = document.getElementById('scoreSection');
+
+  btn.disabled = true;
+  errorBox.classList.remove('visible');
+  scoreSection.classList.remove('visible');
+  progressBar.classList.add('active');
+  progressFill.style.width = '0%';
+
+  const steps = [
+    [10, '▸ Resolving target...'],
+    [25, '▸ Fetching HTTP headers...'],
+    [45, '▸ Analyzing security posture...'],
+    [65, '▸ Checking WordPress fingerprints...'],
+    [80, '▸ Scanning endpoint exposure...'],
+    [92, '▸ Generating recommendations...'],
+  ];
+
+  let stepIdx = 0;
+  const stepTimer = setInterval(() => {
+    if (stepIdx < steps.length) {
+      progressFill.style.width = steps[stepIdx][0] + '%';
+      status.textContent = steps[stepIdx][1];
+      stepIdx++;
+    }
+  }, 420);
+
+  try {
+    const start = Date.now();
+    const res = await fetch(`/scan?url=${encodeURIComponent(url)}`);
+    const data = await res.json();
+    const elapsed = ((Date.now() - start) / 1000).toFixed(2);
+
+    clearInterval(stepTimer);
+
+    if (data.error) {
+      errorBox.textContent = '✗ ' + data.error;
+      errorBox.classList.add('visible');
+      progressFill.style.width = '0%';
+      status.textContent = '';
+    } else {
+      progressFill.style.width = '100%';
+      status.textContent = '▸ Scan complete';
+      lastReport = { url, data, elapsed, timestamp: new Date().toISOString() };
+      setTimeout(() => renderResults(url, data, elapsed), 300);
+    }
+  } catch (err) {
+    clearInterval(stepTimer);
+    errorBox.textContent = '✗ Could not connect to scan server. Make sure the backend is running on port 5000.';
+    errorBox.classList.add('visible');
+    progressFill.style.width = '0%';
+    status.textContent = '';
+  }
+
+  btn.disabled = false;
+  setTimeout(() => { progressBar.classList.remove('active'); status.textContent = ''; }, 2000);
+}
+
+document.getElementById('url').addEventListener('keydown', e => {
+  if (e.key === 'Enter') startScan();
+});
+
+function getStatusClass(val) {
+  const v = (val || '').toUpperCase();
+  if (v === 'PASS' || v === 'HIDDEN' || v === 'NONE' || v === 'DISABLED' || v === 'CURRENT' || v === 'RESTRICTED') return 'pass';
+  if (v === 'FAIL' || v === 'DETECTED' || v === 'VISIBLE' || v === 'OLD' || v === 'OPEN') return 'fail';
+  if (v === 'MISSING' || v === 'ENABLED') return 'warn';
+  return 'info';
+}
+
+function isGood(val) {
+  const v = (val || '').toUpperCase();
+  return ['PASS','HIDDEN','NONE','DISABLED','CURRENT','RESTRICTED'].includes(v);
+}
+
+function renderResults(url, data, elapsed) {
+  const scoreSection = document.getElementById('scoreSection');
+  const checksGrid = document.getElementById('checksGrid');
+  const recList = document.getElementById('recList');
+  const scoreGrade = document.getElementById('scoreGrade');
+  const scoreLabel = document.getElementById('scoreLabel');
+  const scoreUrl = document.getElementById('scoreUrl');
+  const ringFill = document.getElementById('ringFill');
+  const scoreNum = document.getElementById('scoreNum');
+  const scanTime = document.getElementById('scanTime');
+
+  checksGrid.innerHTML = '';
+  recList.innerHTML = '';
+
+  // Compute score
+  let totalWeight = 0, earned = 0;
+  Object.entries(CHECKS_META).forEach(([key, meta]) => {
+    totalWeight += meta.weight;
+    if (data[key] !== undefined && isGood(data[key])) earned += meta.weight;
+  });
+  const score = Math.round((earned / totalWeight) * 100);
+
+  // Grade
+  let grade, gradeColor, labelText;
+  if (score >= 90)      { grade = 'A+'; gradeColor = '#00e676'; labelText = 'Excellent Security'; }
+  else if (score >= 80) { grade = 'A';  gradeColor = '#00e676'; labelText = 'Good Security'; }
+  else if (score >= 70) { grade = 'B';  gradeColor = '#69f0ae'; labelText = 'Moderate Security'; }
+  else if (score >= 55) { grade = 'C';  gradeColor = '#ffa733'; labelText = 'Below Average'; }
+  else if (score >= 40) { grade = 'D';  gradeColor = '#ff6b35'; labelText = 'Poor Security'; }
+  else                  { grade = 'F';  gradeColor = '#ff3c6e'; labelText = 'Critical Risk'; }
+
+  scoreGrade.textContent = grade;
+  scoreGrade.style.color = gradeColor;
+  scoreLabel.textContent = labelText;
+  scoreLabel.style.color = gradeColor;
+  scoreUrl.textContent = url;
+  scanTime.textContent = `Scanned in ${elapsed}s · ${new Date().toLocaleTimeString()}`;
+
+  // Animate ring
+  const circumference = 251;
+  const offset = circumference - (score / 100) * circumference;
+  ringFill.style.stroke = gradeColor;
+  setTimeout(() => { ringFill.style.strokeDashoffset = offset; }, 100);
+
+  // Animate score number
+  let cur = 0;
+  const inc = setInterval(() => {
+    cur = Math.min(cur + 2, score);
+    scoreNum.textContent = cur;
+    if (cur >= score) clearInterval(inc);
+  }, 20);
+
+  // Render checks
+  const checks = {
+    ssl:                  { label: data.ssl },
+    xFrameOptions:        { label: data.xFrameOptions },
+    contentSecurityPolicy:{ label: data.contentSecurityPolicy },
+    xssProtection:        { label: data.xssProtection },
+    poweredBy:            { label: data.poweredBy?.includes('VISIBLE') ? 'VISIBLE' : data.poweredBy },
+    strictTransport:      { label: data.strictTransport },
+    referrerPolicy:       { label: data.referrerPolicy },
+    permissionsPolicy:    { label: data.permissionsPolicy },
+    cacheControl:         { label: data.cacheControl },
+    serverHeader:         { label: data.serverHeader },
+    wpVersion:            { label: data.wpVersion },
+    directoryListing:     { label: data.directoryListing },
+    xmlrpc:               { label: data.xmlrpc },
+  };
+
+  let delay = 0;
+  Object.entries(checks).forEach(([key, {label}]) => {
+    if (label === undefined) return;
+    const meta = CHECKS_META[key];
+    const statusClass = getStatusClass(label);
+    const statusKey = (label || '').toUpperCase().split(' ')[0];
+    const card = document.createElement('div');
+    card.className = `check-card ${statusClass}`;
+    card.style.animationDelay = `${delay}ms`;
+    card.innerHTML = `
+      <div class="check-top">
+        <div>
+          <div class="check-name">${meta.icon} ${meta.name}</div>
+        </div>
+        <span class="check-status status-${statusKey}">${label}</span>
+      </div>
+      <div class="check-detail">Weight: ${meta.weight}pts · ${statusClass === 'pass' ? '✓ Secure' : statusClass === 'fail' ? '✗ Issue found' : '⚠ Needs attention'}</div>
+    `;
+    checksGrid.appendChild(card);
+    delay += 60;
+  });
+
+  // Recommendations (only for failed/missing)
+  const sevOrder = ['critical','high','medium','low','info'];
+  const recs = [];
+  Object.entries(RECOMMENDATIONS).forEach(([key, rec]) => {
+    if (data[key] === undefined) return;
+    if (!isGood(data[key])) recs.push({ key, ...rec });
+  });
+  recs.sort((a,b) => sevOrder.indexOf(a.severity) - sevOrder.indexOf(b.severity));
+
+  if (recs.length === 0) {
+    recList.innerHTML = `<div style="font-family:var(--mono);font-size:0.82rem;color:var(--pass);padding:16px 0;">✓ No critical issues found. Site security looks good!</div>`;
+  } else {
+    recs.forEach((rec, i) => {
+      const item = document.createElement('div');
+      item.className = 'rec-item';
+      item.style.animationDelay = `${i * 60}ms`;
+      item.innerHTML = `
+        <div class="rec-severity sev-${rec.severity}"></div>
+        <div class="rec-content">
+          <div class="rec-header">
+            <div class="rec-headline">${rec.headline}</div>
+            <div style="display:flex;align-items:center;gap:4px">
+              <span class="rec-tag">${rec.severity.toUpperCase()} · ${rec.tag}</span>
+              <span class="rec-arrow">▶</span>
+            </div>
+          </div>
+          <div class="rec-body">
+            <div>${rec.body}</div>
+            <div class="rec-code">${escapeHtml(rec.fix)}</div>
+          </div>
+        </div>
+      `;
+      item.addEventListener('click', () => item.classList.toggle('expanded'));
+      recList.appendChild(item);
+    });
+  }
+
+  scoreSection.classList.add('visible');
+  scoreSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function escapeHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function exportJSON() {
+  if (!lastReport) return;
+  const blob = new Blob([JSON.stringify(lastReport, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = 'wpshield-report.json'; a.click();
+}
+
+function exportText() {
+  if (!lastReport) return;
+  const { url, data, elapsed, timestamp } = lastReport;
+  let txt = `WPShield Security Audit Report\n`;
+  txt += `================================\n`;
+  txt += `URL: ${url}\nDate: ${timestamp}\nScan Time: ${elapsed}s\n\n`;
+  txt += `SECURITY CHECKS\n---------------\n`;
+  Object.entries(data).forEach(([k,v]) => { txt += `${k}: ${v}\n`; });
+  txt += `\nRECOMMENDATIONS\n---------------\n`;
+  Object.entries(RECOMMENDATIONS).forEach(([k,rec]) => {
+    if (data[k] !== undefined && !isGood(data[k])) {
+      txt += `\n[${rec.severity.toUpperCase()}] ${rec.headline}\n${rec.body}\n`;
+    }
+  });
+  const blob = new Blob([txt], { type: 'text/plain' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = 'wpshield-report.txt'; a.click();
+}
+
+function copyReport() {
+  if (!lastReport) return;
+  const { url, data } = lastReport;
+  let txt = `WPShield Audit: ${url}\n`;
+  Object.entries(data).forEach(([k,v]) => { txt += `${k}: ${v}\n`; });
+  navigator.clipboard.writeText(txt).then(() => {
+    const btn = event.target;
+    btn.textContent = '✓ Copied!';
+    setTimeout(() => btn.textContent = '⎘ Copy Summary', 2000);
+  });
+}
+</script>
+</body>
+</html>
