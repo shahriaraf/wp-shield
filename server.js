@@ -18,12 +18,9 @@ function normalizeUrl(url) {
   return url;
 }
 
-app.get("/", (req, res) => {
-  res.send("WPShield Scanner Backend Running");
-});
 
 // ─── Main Scan Endpoint ───────────────────────────────────────────────────────
-app.get("/scan", async (req, res) => {
+app.get("/", async (req, res) => {
   let url = (req.query.url || "").trim();
   if (!url) return res.json({ error: "URL required" });
 
