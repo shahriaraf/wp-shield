@@ -1,5 +1,8 @@
 {
-  "rewrites": [
-    { "source": "/scan", "destination": "/api/scan" }
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "/api"
+    }
   ]
 }
