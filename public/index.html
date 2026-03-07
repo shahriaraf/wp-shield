@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>WP Shield — Security Audit</title>
   <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet"/>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -896,17 +896,75 @@ function exportJSON() {
 }
 
 function exportText() {
-  const element = document.getElementById("scoreSection");
+  if (!lastReport) return;
 
-  const opt = {
-    margin: 0.5,
-    filename: 'wpshield-report.pdf',
-    image: { type: 'jpeg', quality: 0.98 },
-    html2canvas: { scale: 2 },
-    jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' }
-  };
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
 
-  html2pdf().set(opt).from(element).save();
+  const { url, data, elapsed, timestamp } = lastReport;
+
+  let y = 20;
+
+  doc.setFont("Helvetica", "bold");
+  doc.setFontSize(18);
+  doc.text("WPShield Security Audit Report", 20, y);
+
+  y += 10;
+  doc.setFontSize(11);
+  doc.setFont("Helvetica", "normal");
+
+  doc.text(`URL: ${url}`, 20, y);
+  y += 6;
+  doc.text(`Date: ${timestamp}`, 20, y);
+  y += 6;
+  doc.text(`Scan Time: ${elapsed}s`, 20, y);
+
+  y += 12;
+  doc.setFont("Helvetica", "bold");
+  doc.text("Security Checks", 20, y);
+
+  y += 8;
+  doc.setFont("Helvetica", "normal");
+
+  Object.entries(data).forEach(([key, val]) => {
+    doc.text(`${key}: ${val}`, 20, y);
+    y += 6;
+
+    if (y > 270) {
+      doc.addPage();
+      y = 20;
+    }
+  });
+
+  y += 8;
+  doc.setFont("Helvetica", "bold");
+  doc.text("Recommendations", 20, y);
+
+  y += 8;
+  doc.setFont("Helvetica", "normal");
+
+  Object.entries(RECOMMENDATIONS).forEach(([key, rec]) => {
+    if (data[key] !== undefined && !isGood(data[key])) {
+
+      doc.setFont("Helvetica", "bold");
+      doc.text(`[${rec.severity.toUpperCase()}] ${rec.headline}`, 20, y);
+
+      y += 6;
+      doc.setFont("Helvetica", "normal");
+
+      const lines = doc.splitTextToSize(rec.body, 170);
+      doc.text(lines, 20, y);
+
+      y += lines.length * 6 + 4;
+
+      if (y > 260) {
+        doc.addPage();
+        y = 20;
+      }
+    }
+  });
+
+  doc.save("wpshield-report.pdf");
 }
 
 function copyReport() {
