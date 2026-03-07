@@ -910,7 +910,7 @@ function exportText() {
   });
   const blob = new Blob([txt], { type: 'text/plain' });
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
-  a.download = 'wpshield-report.txt'; a.click();
+  a.download = 'wpshield-report.pdf'; a.click();
 }
 
 function copyReport() {
