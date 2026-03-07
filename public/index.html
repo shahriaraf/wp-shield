@@ -897,18 +897,18 @@ function exportJSON() {
 function exportText() {
   if (!lastReport) return;
   const { url, data, elapsed, timestamp } = lastReport;
-  let txt = `WPShield Security Audit Report\n`;
-  txt += `================================\n`;
-  txt += `URL: ${url}\nDate: ${timestamp}\nScan Time: ${elapsed}s\n\n`;
-  txt += `SECURITY CHECKS\n---------------\n`;
-  Object.entries(data).forEach(([k,v]) => { txt += `${k}: ${v}\n`; });
-  txt += `\nRECOMMENDATIONS\n---------------\n`;
+  let pdf = `WPShield Security Audit Report\n`;
+  pdf += `================================\n`;
+  pdf += `URL: ${url}\nDate: ${timestamp}\nScan Time: ${elapsed}s\n\n`;
+  pdf += `SECURITY CHECKS\n---------------\n`;
+  Object.entries(data).forEach(([k,v]) => { pdf += `${k}: ${v}\n`; });
+  pdf += `\nRECOMMENDATIONS\n---------------\n`;
   Object.entries(RECOMMENDATIONS).forEach(([k,rec]) => {
     if (data[k] !== undefined && !isGood(data[k])) {
-      txt += `\n[${rec.severity.toUpperCase()}] ${rec.headline}\n${rec.body}\n`;
+      pdf += `\n[${rec.severity.toUpperCase()}] ${rec.headline}\n${rec.body}\n`;
     }
   });
-  const blob = new Blob([txt], { type: 'text/plain' });
+  const blob = new Blob([pdf], { type: 'text/plain' });
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
   a.download = 'wpshield-report.pdf'; a.click();
 }
@@ -916,9 +916,9 @@ function exportText() {
 function copyReport() {
   if (!lastReport) return;
   const { url, data } = lastReport;
-  let txt = `WPShield Audit: ${url}\n`;
-  Object.entries(data).forEach(([k,v]) => { txt += `${k}: ${v}\n`; });
-  navigator.clipboard.writeText(txt).then(() => {
+  let pdf = `WPShield Audit: ${url}\n`;
+  Object.entries(data).forEach(([k,v]) => { pdf += `${k}: ${v}\n`; });
+  navigator.clipboard.writeText(pdf).then(() => {
     const btn = event.target;
     btn.textContent = '✓ Copied!';
     setTimeout(() => btn.textContent = '⎘ Copy Summary', 2000);
