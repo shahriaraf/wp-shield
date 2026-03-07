@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>WP Shield — Security Audit</title>
   <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet"/>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -895,22 +896,17 @@ function exportJSON() {
 }
 
 function exportText() {
-  if (!lastReport) return;
-  const { url, data, elapsed, timestamp } = lastReport;
-  let pdf = `WPShield Security Audit Report\n`;
-  pdf += `================================\n`;
-  pdf += `URL: ${url}\nDate: ${timestamp}\nScan Time: ${elapsed}s\n\n`;
-  pdf += `SECURITY CHECKS\n---------------\n`;
-  Object.entries(data).forEach(([k,v]) => { pdf += `${k}: ${v}\n`; });
-  pdf += `\nRECOMMENDATIONS\n---------------\n`;
-  Object.entries(RECOMMENDATIONS).forEach(([k,rec]) => {
-    if (data[k] !== undefined && !isGood(data[k])) {
-      pdf += `\n[${rec.severity.toUpperCase()}] ${rec.headline}\n${rec.body}\n`;
-    }
-  });
-  const blob = new Blob([pdf], { type: 'text/plain' });
-  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
-  a.download = 'wpshield-report.pdf'; a.click();
+  const element = document.getElementById("scoreSection");
+
+  const opt = {
+    margin: 0.5,
+    filename: 'wpshield-report.pdf',
+    image: { type: 'jpeg', quality: 0.98 },
+    html2canvas: { scale: 2 },
+    jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' }
+  };
+
+  html2pdf().set(opt).from(element).save();
 }
 
 function copyReport() {
